@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import Web3 from 'web3';
-import Lock from '../artifacts/Lock.json';
+import DocumentVerifier from '../artifacts/DocumentVerifier.json';
 
 declare let window: any; 
 
@@ -42,7 +42,7 @@ export class Web3Service {
 
   getContract() {
     if(!this.contract) {
-      this.contract = new this.web3.eth.Contract(Lock.abi, this.contractAddress);
+      this.contract = new this.web3.eth.Contract(DocumentVerifier.abi, this.contractAddress);
     }
     return this.contract;
   }

@@ -1,20 +1,14 @@
 import { ethers } from "hardhat";
 
 async function main() {
-  const currentTimestampInSeconds = Math.round(Date.now() / 1000);
-  const unlockTime = currentTimestampInSeconds + 60;
+  console.log("Deploying DocumentVerifier...");
 
-  const lockedAmount = ethers.parseEther("0.01");
+  const DocumentVerifier = await ethers.getContractFactory("DocumentVerifier");
+  const verifier = await DocumentVerifier.deploy();
 
-  const lock = await ethers.deployContract("Lock", [unlockTime], {
-    value: lockedAmount,
-  });
+  await verifier.waitForDeployment();
 
-  await lock.waitForDeployment();
-
-  console.log(
-    `Lock with 0.01 ETH and unlock timestamp ${unlockTime} deployed to ${lock.target}`
-  );
+  console.log(`Contrato implantado no endereço: ${await verifier.getAddress()}`);
 }
 
 main().catch((error) => {

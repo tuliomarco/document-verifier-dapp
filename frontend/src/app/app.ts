@@ -19,7 +19,7 @@ export class AppComponent {
   constructor(private web3Service: Web3Service, private ngZone: NgZone) {}
 
   async connect() {
-    console.log('🔌 Conectando...'); 
+    console.log('Conectando...'); 
     const address = await this.web3Service.connectWallet();
     
     // NgZone garante que a tela atualize na mesma hora
@@ -28,16 +28,22 @@ export class AppComponent {
     });
   }
 
-  async checkBalance() {
-    console.log('💰 Verificando saldo...');
-    const balance = await this.web3Service.getContractBalance();
-    
-    this.ngZone.run(() => {
-      this.contractBalance = balance;
-      
-      if (this.contractBalance) {
-         alert('Saldo atualizado: ' + this.contractBalance + ' ETH'); 
-      }
-    });
+  async register(documentHash: string) {
+    if(!documentHash) {
+      alert('Por favor, insira um hash válido');
+      return;
+    }
+
+    console.log('Tentando registrar hash: ', documentHash);
+
+    try {
+      const contract = this.web3Service.getContract();
+
+      await contract.methods.registerDocument(documentHash).send({ from: this.userAddress });
+      alert('Sucesso! Documento registrado imutavelmente na Blockchain.');
+    } catch (error) {
+      console.error('Erro ao registrar:', error);
+      alert('Erro ao registrar o documento. Verifique o console.');
+    }
   }
 }
