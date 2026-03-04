@@ -1,0 +1,39 @@
+<ngx-dropzone 
+  (change)="onSelect($event)" 
+  [multiple]="false" 
+  accept="application/pdf"
+>
+  <ngx-dropzone-label>
+    
+    <div *ngIf="selectedFile" class="flex flex-col items-center space-y-4 animate-fade-in-up w-full">
+      <div class="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 shadow-sm">
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      </div>
+      <div>
+        <p class="font-semibold text-slate-800 text-lg truncate max-w-[250px] md:max-w-md mx-auto">{{ selectedFile.name }}</p>
+        <p class="text-slate-500 text-sm">{{ (selectedFile.size / 1024 / 1024).toFixed(2) }} MB</p>
+      </div>
+      <p class="text-xs text-slate-400 mt-2">Clique ou arraste outro arquivo para substituir</p>
+    </div>
+
+    <div *ngIf="!selectedFile" class="flex flex-col items-center justify-center pointer-events-none animate-fade-in-up w-full">
+      
+      <div class="icon-wrapper w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 shadow-sm border border-slate-200 bg-white text-slate-400 mb-4">
+        <svg class="svg-default" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+        
+        <svg class="svg-drag hidden" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      </div>
+      
+      <div class="space-y-1 text-center">
+        <p class="font-semibold text-slate-700 text-lg text-default">Arraste e solte o seu documento PDF</p>
+        <p class="font-semibold text-emerald-600 text-lg text-drag hidden">Solte o arquivo aqui</p>
+        
+        <p class="text-slate-500 text-sm text-sub transition-opacity">
+          ou <span class="text-blue-600 underline decoration-blue-600/30 underline-offset-4 font-medium">procure nos arquivos</span>
+        </p>
+      </div>
+      <p class="text-xs text-slate-400 mt-2">Suporta apenas PDF até 10MB</p>
+    </div>
+
+  </ngx-dropzone-label>
+</ngx-dropzone>

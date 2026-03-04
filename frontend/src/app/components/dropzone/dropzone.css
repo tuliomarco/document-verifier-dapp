@@ -1,0 +1,70 @@
+@keyframes fadeInUpSmall {
+  from { opacity: 0; transform: translateY(10px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUpSmall 0.5s ease-out forwards;
+}
+
+/* 1. Lógica de mostrar/esconder itens */
+.drag-active-only { display: none; }
+.default-only { display: block; }
+
+::ng-deep ngx-dropzone.ngx-dz-hovered .drag-active-only { display: block !important; }
+::ng-deep ngx-dropzone.ngx-dz-hovered .default-only { display: none !important; }
+
+/* 2. FORÇANDO A ESTÉTICA DO FIGMA E A ALTURA MAIOR */
+::ng-deep ngx-dropzone {
+  width: 100% !important;
+  height: 340px !important; /* AQUI AUMENTAMOS A ALTURA */
+  margin: 0 !important;
+  border: 2px dashed #cbd5e1 !important; 
+  border-radius: 1rem !important; 
+  background-color: #f8fafc !important; 
+  transition: all 0.3s ease !important;
+  cursor: pointer !important;
+}
+
+/* Efeito de hover normal */
+::ng-deep ngx-dropzone:hover {
+  border-color: #94a3b8 !important; 
+  background-color: #f1f5f9 !important; 
+}
+
+/* Efeito drag (verde) */
+::ng-deep ngx-dropzone.ngx-dz-hovered {
+  border-color: #10b981 !important; 
+  background-color: #ecfdf5 !important; 
+}
+
+/* 3. CORRIGINDO O ÍCONE DESLOCADO */
+/* Transformamos o icon-circle numa flexbox blindada contra o ngx-dropzone */
+::ng-deep .icon-circle {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+/* Garante que o SVG dentro do círculo não tenha margens fantasmas */
+::ng-deep .icon-circle svg {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Corrige o alinhamento interno geral */
+::ng-deep ngx-dropzone-label {
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+/* Exceção especial: Quando está no hover, o drag-active-only do círculo precisa ser flex, não block */
+::ng-deep ngx-dropzone.ngx-dz-hovered div.icon-circle.drag-active-only {
+  display: flex !important;
+}
