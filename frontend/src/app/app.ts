@@ -85,7 +85,7 @@ export class AppComponent implements OnInit {
       } catch (error: any) {
         console.error("Erro de conexão:", error);
         if (error.code === -32002) {
-          toast.warning('Já existe um pedido aberto.', { id: 'wallet-connect', duration: 8000 });
+          toast.warning('Aguardando conexão. Já existe um pedido aberto.', { id: 'wallet-connect', duration: 8000 });
         } else {
           toast.error('Conexão rejeitada.', { id: 'wallet-connect', duration: 4000 });
         }

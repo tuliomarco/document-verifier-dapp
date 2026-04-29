@@ -1,7 +1,13 @@
-import { Component, Input, Output, EventEmitter, ChangeDetectorRef } from '@angular/core';
+import { Component, Input, Output, EventEmitter, NgZone, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { DropzoneComponent } from '../dropzone/dropzone'; // Importando seu dropzone novo!
+import { DropzoneComponent } from '../dropzone/dropzone'; 
 import { toast } from 'ngx-sonner';
+import { BrowserProvider, Contract } from 'ethers';
+
+import DocumentVerifierArtifact from '../../artifacts/DocumentVerifier.json';
+
+const CONTRACT_ABI = DocumentVerifierArtifact.abi;
+const CONTRACT_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3';
 
 type Tab = 'register' | 'verify';
 
@@ -18,7 +24,7 @@ export class MainCardComponent {
   @Input() walletAddress: string | null = null;
   @Output() onConnect = new EventEmitter<void>();
 
-  constructor(private cdr: ChangeDetectorRef) {}
+  constructor(private ngZone: NgZone, private cdr: ChangeDetectorRef) {}
 
   activeTab: Tab = 'register';
   file: File | null = null;
@@ -55,32 +61,88 @@ export class MainCardComponent {
       return;
     }
 
+    // Verifica se a MetaMask (ou outra carteira) está instalada
+    if (!(window as any).ethereum) {
+      toast.error('Carteira Web3 não detectada no navegador.');
+      return;
+    }
+
     this.isProcessing = true;
     
     try {
-      // Simula o delay da rede
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      // 1. Gera o Hash localmente no navegador (Rápido e sem custo)
       const hash = await this.generateHash(this.file);
-      const timestamp = new Date().toISOString();
 
-      this.result = { hash, timestamp };
-      
+      // 2. Conecta ao provedor da MetaMask e prepara o Contrato
+      const provider = new BrowserProvider((window as any).ethereum);
+      const signer = await provider.getSigner();
+      const contract = new Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer) as any;
+
       if (this.activeTab === 'register') {
-        toast.success('Documento registrado com sucesso na blockchain!', {
-          description: `Hash: ${hash.slice(0, 10)}...`,
+        
+        // REGISTRAR: Pede assinatura na MetaMask e manda para a blockchain
+        const tx = await contract.registerDocument(hash);
+        
+        toast.loading('Confirmando transação na rede...', { id: 'tx-toast' });
+        
+        // Aguarda a confirmação do bloco
+        await tx.wait();
+        
+        toast.dismiss('tx-toast');
+
+        // Atualiza a tela (NgZone garante que o Angular perceba a mudança)
+        this.ngZone.run(() => {
+          this.result = { 
+            hash, 
+            timestamp: new Date().toISOString() 
+          };
+          toast.success('Documento registrado com sucesso na blockchain!', {
+            description: `Hash: ${hash.slice(0, 10)}...`,
+          });
         });
+
       } else {
-        toast.success('Documento verificado com sucesso!', {
-           description: 'O documento é autêntico e não foi alterado.',
+        
+        // VERIFICAR: Lê da blockchain (Gratuito, não abre MetaMask)
+        const [isRegistered, blockTimestamp, issuer] = await contract.verifyDocument(hash);
+
+        this.ngZone.run(() => {
+          if (isRegistered) {
+            // Converte o tempo do bloco da rede para data normal
+            const date = new Date(Number(blockTimestamp) * 1000).toISOString();
+            this.result = { hash, timestamp: date };
+            
+            toast.success('Documento verificado e autêntico!', {
+               description: `Emitido pela carteira: ${issuer.slice(0,6)}...${issuer.slice(-4)}`,
+            });
+          } else {
+            toast.error('Documento não encontrado.', {
+              description: 'Este arquivo pode ter sido alterado ou nunca foi registrado.'
+            });
+            this.result = null;
+          }
         });
+
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast.error('Ocorreu um erro ao processar o documento.');
+      this.ngZone.run(() => {
+        toast.dismiss('tx-toast');
+        
+        // Tratamento de erros comuns
+        if (error.code === 'ACTION_REJECTED') {
+          toast.error('Transação cancelada na carteira.');
+        } else if (error.message && error.message.includes('Documento ja registrado')) {
+          toast.warning('Atenção: Este documento já possui registro na rede!');
+        } else {
+          toast.error('Ocorreu um erro de comunicação com a rede blockchain.');
+        }
+      });
     } finally {
-      this.isProcessing = false;
-      this.cdr.detectChanges();
+      this.ngZone.run(() => {
+        this.isProcessing = false;
+        this.cdr.detectChanges();
+      });
     }
   }
 }
