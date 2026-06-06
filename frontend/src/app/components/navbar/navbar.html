@@ -9,17 +9,30 @@
     <span class="text-xl font-bold text-[#0B132B] tracking-tight">VerificaChain</span>
   </div>
 
-  <button
-    (click)="onConnect.emit()"
-    class="flex items-center space-x-2 px-5 py-2.5 bg-slate-900 text-white rounded-full font-medium text-sm hover:bg-slate-800 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 shadow-lg shadow-slate-200"
-  >
-    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>
-    </svg>
+  <div class="flex items-center gap-4">
     
-    <span>
-      {{ walletAddress ? formatAddress(walletAddress) : 'Conectar Carteira' }}
-    </span>
-  </button>
-  
+    <button
+      *ngIf="walletAddress"
+      (click)="onViewDocuments.emit()"
+      class="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+    >
+      Meus Documentos
+    </button>
+
+    <button
+      (click)="onConnect.emit()"
+      class="flex items-center space-x-2 px-5 py-2.5 bg-slate-900 text-white rounded-full font-medium text-sm hover:bg-slate-800 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 shadow-lg shadow-slate-200"
+    >
+      <span *ngIf="walletAddress" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+      
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>
+      </svg>
+      
+      <span>
+        {{ walletAddress ? formatAddress(walletAddress) : 'Conectar Carteira' }}
+      </span>
+    </button>
+    
+  </div>
 </nav>

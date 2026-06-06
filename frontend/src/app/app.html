@@ -1,9 +1,13 @@
 <div class="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900 selection:bg-emerald-100 selection:text-emerald-900">
   <ngx-sonner-toaster position="top-center" [richColors]="true"></ngx-sonner-toaster>
   
-  <app-navbar [walletAddress]="userAddress" (onConnect)="connect()"></app-navbar>
+  <app-navbar 
+    [walletAddress]="userAddress" 
+    (onConnect)="connect()"
+    (onViewDocuments)="goToDocuments()">
+  </app-navbar>
 
-  <main class="flex-grow container mx-auto px-4 py-12 flex flex-col items-center justify-center">
+  <main *ngIf="currentView === 'home'" class="grow container mx-auto px-4 py-12 flex flex-col items-center justify-center">
     <app-hero></app-hero>
     
     <div class="w-full flex justify-center pb-20 mt-2">
@@ -11,6 +15,10 @@
     </div>
 
     <app-features></app-features>
+  </main>
+
+  <main *ngIf="currentView === 'documents'" class="grow w-full">
+    <app-documents (onBackToHome)="goToHome()"></app-documents>
   </main>
 
   <app-footer></app-footer>

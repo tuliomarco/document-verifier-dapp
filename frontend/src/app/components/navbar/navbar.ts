@@ -11,8 +11,9 @@ export class NavbarComponent {
   // @Input() recebe a variável do componente pai (AppComponent)
   @Input() walletAddress: string | null = null;
   
-  // @Output() avisa o componente pai que o botão foi clicado
+  // @Output() avisa o componente pai que os botões foram clicados
   @Output() onConnect = new EventEmitter<void>();
+  @Output() onViewDocuments = new EventEmitter<void>(); // Novo aviso para a aba
 
   // Função para formatar o endereço (ex: 0x1234...abcd)
   formatAddress(address: string): string {
