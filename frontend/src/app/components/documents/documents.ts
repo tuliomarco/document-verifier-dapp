@@ -1,58 +1,206 @@
-import { Component, Output, EventEmitter } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { toast } from 'ngx-sonner';
+import { Subscription } from 'rxjs';
+import { BlockchainService } from '../../services/blockchain.service';
+import { WalletService } from '../../services/wallet.service';
+import { Router, RouterModule } from '@angular/router';
 
-interface DocumentRecord {
+export interface DocumentRecord {
   id: string;
   fileName: string;
   registeredDate: string;
   hash: string;
   ipfsUrl: string;
+  isRevoked: boolean;     
+  revokedDate?: string; 
 }
 
 @Component({
   selector: 'app-documents',
   standalone: true,
-  imports: [CommonModule],
-  templateUrl: './documents.html'
+  imports: [CommonModule, RouterModule],
+  templateUrl: './documents.html',
+  styleUrl: './documents.css'
 })
-export class DocumentsComponent {
-  @Output() onBackToHome = new EventEmitter<void>();
+export class DocumentsComponent implements OnInit, OnDestroy {
+  // Lógicas que vieram do app.ts
+  walletAddress: string | null = null;
+  documents: DocumentRecord[] = [];
+  
+  currentPage: number = 1;
+  itemsPerPage: number = 8;
+  totalPages: number = 1;
+  totalDocuments: number = 0;
+  
+  isLoading: boolean = false;
+  isProcessing: boolean = false; // Usado na revogação
 
-  // Estados de Visualização
+  // Lógicas visuais que já eram do documents.ts
   viewMode: 'grid' | 'list' = 'grid';
-  currentPage = 1;
-  itemsPerPageGrid = 8;
-  itemsPerPageList = 6;
+  isRevokeModalOpen: boolean = false;
+  documentIdToRevoke: string | null = null;
 
-  // Array de documentos
-  documents: DocumentRecord[] = [
-    { id: '1', fileName: 'Diploma_Graduacao.pdf', registeredDate: '06 de Maio de 2026', hash: '0x71C7...f3f9A', ipfsUrl: 'https://ipfs.io/ipfs/QmX7Y8Z9...' },
-    { id: '2', fileName: 'Certidao_Nascimento.pdf', registeredDate: '03 de Maio de 2026', hash: '0xA4B3...34567', ipfsUrl: 'https://ipfs.io/ipfs/QmA1B2C3...' },
-    { id: '3', fileName: 'Contrato_Trabalho.pdf', registeredDate: '28 de Abril de 2026', hash: '0x9F8E...87654', ipfsUrl: 'https://ipfs.io/ipfs/QmD4E5F6...' },
-    { id: '4', fileName: 'Certificado_Especializacao.pdf', registeredDate: '15 de Abril de 2026', hash: '0x1234...8ABCD', ipfsUrl: 'https://ipfs.io/ipfs/QmG7H8I9...' }
-  ];
+  private sub!: Subscription;
+  private delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-  // --- LÓGICA DE PAGINAÇÃO ---
-  get itemsPerPage() {
-    return this.viewMode === 'grid' ? this.itemsPerPageGrid : this.itemsPerPageList;
+  constructor(
+    private blockchainService: BlockchainService,
+    private walletService: WalletService,
+    private cdr: ChangeDetectorRef,
+    private router: Router
+  ) {}
+
+  ngOnInit() {
+    this.sub = this.walletService.userAddress$.subscribe(address => {
+      this.walletAddress = address;
+      
+      if (this.walletAddress) {
+        const savedViewMode = localStorage.getItem('docsViewMode') as 'grid' | 'list';
+        const savedPage = sessionStorage.getItem('docsCurrentPage');
+        if (savedPage) {
+          this.currentPage = Number(savedPage);
+        }
+        if (savedViewMode) {
+          this.viewMode = savedViewMode;
+        }
+        this.fetchUserDocuments(this.walletAddress, this.currentPage);
+      } else {
+        const isStillInitializing = (this.walletService as any).isInitializing$?.value;
+        
+        if (!isStillInitializing) {
+          this.documents = [];
+          this.router.navigate(['/']);
+        }
+      }
+    });
   }
 
-  get totalPages() {
-    return Math.ceil(this.documents.length / this.itemsPerPage);
+  ngOnDestroy() {
+    if (this.sub) this.sub.unsubscribe();
   }
 
-  get currentDocuments() {
-    const startIndex = (this.currentPage - 1) * this.itemsPerPage;
-    return this.documents.slice(startIndex, startIndex + this.itemsPerPage);
+  // --- FUNÇÕES DE BUSCA E REVOGAÇÃO (Migradas do app.ts) ---
+
+  async fetchUserDocuments(walletAddress: string, page: number = this.currentPage) {
+    try {
+      this.isLoading = true;
+      
+      this.totalDocuments = await this.blockchainService.getUserDocumentCount(walletAddress);
+      this.totalPages = Math.ceil(this.totalDocuments / this.itemsPerPage) || 1;
+      
+
+      const offset = (page - 1) * this.itemsPerPage;
+      const [tokenIds, revokeTimes] = await this.blockchainService.getPaginatedDocuments(walletAddress, offset, this.itemsPerPage);
+      
+      const fetchedDocuments: DocumentRecord[] = [];
+
+      for (let i = 0; i < tokenIds.length; i++) {
+        const tokenId = tokenIds[i].toString();
+        const revokeTimestamp = Number(revokeTimes[i]); 
+        
+        const uri = await this.blockchainService.getTokenURI(tokenId);
+        const ipfsResponse = await fetch(uri);
+        const ipfsData = await ipfsResponse.json();
+        
+        const isRevoked = revokeTimestamp > 0;
+        let revokedDateStr = '';
+        
+        if (isRevoked) {
+          const date = new Date(revokeTimestamp * 1000);
+          revokedDateStr = date.toLocaleDateString('pt-BR');
+        }
+
+        let finalFileUrl = uri; 
+        if (ipfsData.documentUrl) {
+          finalFileUrl = ipfsData.documentUrl.startsWith('ipfs://') 
+            ? ipfsData.documentUrl.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/') 
+            : ipfsData.documentUrl;
+        }
+
+        fetchedDocuments.push({
+          id: tokenId,
+          fileName: ipfsData.name,
+          registeredDate: ipfsData.date,
+          hash: ipfsData.hash,
+          ipfsUrl: finalFileUrl,
+          isRevoked: isRevoked,
+          revokedDate: revokedDateStr
+        });
+      }
+
+      this.documents = fetchedDocuments;
+    } catch (error) {
+      console.error('Erro ao buscar documentos:', error);
+      toast.error('Falha ao comunicar com a blockchain.');
+    } finally {
+      this.isLoading = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  async revokeDocumentTransaction(tokenId: string) {
+    this.isProcessing = true; 
+    try {
+      const tx = await this.blockchainService.revokeDocument(tokenId);
+      await tx.wait();
+      await this.delay(1000); // Respiro do nó local
+      
+      await this.fetchUserDocuments(this.walletAddress!, this.currentPage);
+
+      this.isProcessing = false;
+      this.cdr.detectChanges();
+
+      toast.success('Documento revogado com sucesso!', {
+        description: 'A invalidação foi registrada de forma imutável na blockchain.',
+      });
+    } catch (error: any) {
+      console.error('Erro na revogação:', error);
+      if (error.code === 'ACTION_REJECTED' || error.code === 4001) {
+        toast.error('Transação cancelada na carteira.');
+      } else {
+        toast.error('Falha ao comunicar com a blockchain.');
+      }
+    } finally {
+      this.isProcessing = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  // --- FUNÇÕES DA INTERFACE (Visuais) ---
+
+  openRevokeModal(id: string) {
+    this.documentIdToRevoke = id;
+    this.isRevokeModalOpen = true;
+  }
+
+  closeRevokeModal() {
+    this.isRevokeModalOpen = false;
+    this.documentIdToRevoke = null;
+  }
+
+  confirmRevoke() {
+    if (this.documentIdToRevoke) {
+      this.revokeDocumentTransaction(this.documentIdToRevoke);
+      this.closeRevokeModal();
+    }
   }
 
   handlePageChange(page: number) {
     this.currentPage = page;
+    sessionStorage.setItem('docsCurrentPage', this.currentPage.toString());
+    this.fetchUserDocuments(this.walletAddress!, this.currentPage);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   handleViewModeChange(mode: 'grid' | 'list') {
     this.viewMode = mode;
-    this.currentPage = 1;
+    localStorage.setItem('docsViewMode', mode);
+  }
+
+  copyToClipboard(text: string) {
+    navigator.clipboard.writeText(text).then(() => {
+      toast.success('Hash copiado!');
+    });
   }
 }

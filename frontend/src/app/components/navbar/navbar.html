@@ -6,33 +6,57 @@
         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
       </svg>
     </div>
-    <span class="text-xl font-bold text-[#0B132B] tracking-tight">VerificaChain</span>
+    <a routerLink="/" class="text-xl font-bold text-[#0B132B] tracking-tight cursor-pointer hover:opacity-80 transition-opacity">VerificaChain</a>
   </div>
 
   <div class="flex items-center gap-4">
     
-    <button
+    <a
       *ngIf="walletAddress"
-      (click)="onViewDocuments.emit()"
-      class="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+      routerLink="/documents"
+      routerLinkActive="bg-slate-200/80 font-bold"
+      [routerLinkActiveOptions]="{exact: true}"
+      class="flex items-center space-x-2 px-5 py-2.5 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200/80 rounded-full transition-all duration-200"
     >
-      Meus Documentos
-    </button>
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+      <span>Meus Documentos</span>
+    </a>
 
+    <!-- BOTÕES DE CONNECT/DISCONNECT PERMANECEM COM (click) -->
     <button
-      (click)="onConnect.emit()"
-      class="flex items-center space-x-2 px-5 py-2.5 bg-slate-900 text-white rounded-full font-medium text-sm hover:bg-slate-800 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 shadow-lg shadow-slate-200"
+      (click)="connect()"
+      [disabled]="isConnecting"
+      [ngClass]="isConnecting 
+        ? 'bg-slate-700 opacity-80 cursor-wait hover:scale-100 active:scale-100' 
+        : 'bg-slate-900 hover:bg-slate-800 hover:scale-[1.02] active:scale-[0.98]'"
+      class="flex items-center space-x-2 px-5 py-2.5 text-white rounded-full font-medium text-sm transition-all duration-200 shadow-lg shadow-slate-200"
     >
-      <span *ngIf="walletAddress" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+      <span *ngIf="walletAddress && !isConnecting" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
       
-      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <svg *ngIf="!isConnecting" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>
+      </svg>
+
+      <svg *ngIf="isConnecting" class="animate-spin w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
       </svg>
       
       <span>
-        {{ walletAddress ? formatAddress(walletAddress) : 'Conectar Carteira' }}
+        {{ isConnecting ? 'Conectando...' : (walletAddress ? formatAddress(walletAddress) : 'Conectar Carteira') }}
       </span>
     </button>
     
+    <button
+      *ngIf="walletAddress" 
+      (click)="disconnectWallet()"
+      class="px-4 py-2.5 text-sm font-medium text-red-600 bg-red-50 rounded-full border border-red-100 hover:bg-red-100 hover:text-red-700 transition-all duration-200 flex items-center gap-2"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+        <polyline points="16 17 21 12 16 7"></polyline>
+        <line x1="21" y1="12" x2="9" y2="12"></line>
+      </svg>
+    </button>
   </div>
 </nav>

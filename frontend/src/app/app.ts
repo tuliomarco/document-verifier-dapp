@@ -1,31 +1,20 @@
-import { Component, ChangeDetectorRef, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { NgxSonnerToaster, toast } from 'ngx-sonner';
+import { Router, RouterModule, NavigationStart, NavigationEnd, NavigationCancel, NavigationError } from '@angular/router';
+import { NgxSonnerToaster } from 'ngx-sonner';
 import { NavbarComponent } from './components/navbar/navbar';
-import { HeroComponent } from './components/hero/hero';
-import { FeaturesComponent } from './components/features/features';
 import { FooterComponent } from './components/footer/footer';
-import { MainCardComponent } from './components/main-card/main-card';
-import { DocumentsComponent } from './components/documents/documents';
-
-declare global {
-  interface Window {
-    ethereum: any;
-  }
-}
+import { WalletService } from './services/wallet.service';
 
 @Component({
   selector: 'app-root',
   standalone: true,
   imports: [
     CommonModule,
+    RouterModule, 
     NgxSonnerToaster,
     NavbarComponent,
-    HeroComponent,
-    FeaturesComponent,
-    FooterComponent,
-    MainCardComponent,
-    DocumentsComponent,
+    FooterComponent
   ],
   templateUrl: './app.html',
   host: {
@@ -33,92 +22,57 @@ declare global {
   },
 })
 export class AppComponent implements OnInit {
-  userAddress: string | null = null;
+  isGlobalLoading = false;
 
-  // Tudo renomeado e amarrado certinho!
-  currentView: 'home' | 'documents' = 'home';
+  constructor(
+    private router: Router,
+    private walletService: WalletService,
+    private cdr: ChangeDetectorRef 
+  ) {}
 
-  constructor(private cdr: ChangeDetectorRef) {}
-
-  async ngOnInit() {
-    if (typeof window.ethereum !== 'undefined') {
-      try {
-        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-        if (accounts.length > 0) {
-          this.userAddress = accounts[0];
+  ngOnInit() {
+    // 1. MÁSCARA DO PRIMEIRO CARREGAMENTO (Evita o piscar da tela inicial)
+    this.walletService.isInitializing$.subscribe(isInit => {
+      if (isInit) {
+        this.isGlobalLoading = true;
+        this.cdr.detectChanges();
+      } else {
+        setTimeout(() => { 
+          this.isGlobalLoading = false; 
           this.cdr.detectChanges();
-          toast.success('Carteira conectada com sucesso!', {
-            id: 'wallet-connect',
-            duration: 4000,
-          });
-        }
-      } catch (error) {
-        console.error('Erro ao verificar conexão existente:', error);
+        }, 300);
       }
+    });
 
-      window.ethereum.on('accountsChanged', (accounts: string[]) => {
-        if (accounts.length === 0) {
-          if (this.userAddress !== null) {
-            this.userAddress = null;
-            this.currentView = 'home'; // Volta pra home se desconectar
-            toast.warning('Carteira desconectada pelo usuário.');
-          }
-        } else {
-          const newAddress = accounts[0];
-          if (this.userAddress !== null && this.userAddress !== newAddress) {
-            this.userAddress = newAddress;
-            toast.info('Conta da MetaMask alterada.');
-          } else if (this.userAddress === null) {
-            this.userAddress = newAddress;
-          }
-        }
-        this.cdr.detectChanges();
-      });
-    }
-  }
+    // 2. ESCUTA AS TRANSIÇÕES DE PÁGINA
+    this.router.events.subscribe((event: any) => {
+      // O Angular considera a entrada no site como o evento de ID 1. Ignoramos para não bugar a máscara acima.
+      if (event.id === 1) return; 
 
-  async connect() {
-    if (this.userAddress) {
-      navigator.clipboard.writeText(this.userAddress);
-      toast.info('Endereço copiado para a área de transferência!');
-      return;
-    }
-
-    if (typeof window.ethereum !== 'undefined') {
-      try {
-        toast.loading('Conectando à MetaMask...', { id: 'wallet-connect', duration: 1000 });
-
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        this.userAddress = accounts[0];
-
-        this.cdr.detectChanges();
-
-        toast.success('Carteira conectada com sucesso!', { id: 'wallet-connect', duration: 4000 });
-      } catch (error: any) {
-        console.error('Erro de conexão:', error);
-        if (error.code === -32002) {
-          toast.warning('Aguardando conexão. Já existe um pedido aberto.', {
-            id: 'wallet-connect',
-            duration: 8000,
-          });
-        } else {
-          toast.error('Conexão rejeitada.', { id: 'wallet-connect', duration: 4000 });
-        }
+      if (event instanceof NavigationStart) {
+        this.isGlobalLoading = true;
+        this.cdr.detectChanges(); 
       }
-    } else {
-      toast.error('MetaMask não detectada! Por favor, instale a extensão.');
-    }
-  }
+      
+      if (event instanceof NavigationEnd || event instanceof NavigationCancel || event instanceof NavigationError) {
+        setTimeout(() => { 
+          this.isGlobalLoading = false; 
+          this.cdr.detectChanges(); 
+        }, 600);
+      }
+    });
 
-  goToDocuments() {
-    if (this.userAddress) {
-      this.currentView = 'documents';
-    } else {
-      toast.warning('Conecte sua carteira primeiro para ver seus documentos.');
-    }
-  }
-
-  goToHome() {
-    this.currentView = 'home';
+    // 3. ESCUTA A CARTEIRA CONECTANDO/DESCONECTANDO
+    this.walletService.isProcessing$.subscribe(status => {
+      if (status) {
+        this.isGlobalLoading = true;
+        this.cdr.detectChanges();
+      } else {
+        setTimeout(() => { 
+          this.isGlobalLoading = false; 
+          this.cdr.detectChanges();
+        }, 600);
+      }
+    });
   }
 }

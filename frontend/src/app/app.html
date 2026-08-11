@@ -1,24 +1,27 @@
 <div class="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900 selection:bg-emerald-100 selection:text-emerald-900">
   <ngx-sonner-toaster position="top-center" [richColors]="true"></ngx-sonner-toaster>
   
-  <app-navbar 
-    [walletAddress]="userAddress" 
-    (onConnect)="connect()"
-    (onViewDocuments)="goToDocuments()">
-  </app-navbar>
-
-  <main *ngIf="currentView === 'home'" class="grow container mx-auto px-4 py-12 flex flex-col items-center justify-center">
-    <app-hero></app-hero>
-    
-    <div class="w-full flex justify-center pb-20 mt-2">
-      <app-main-card [walletAddress]="userAddress" (onConnect)="connect()"></app-main-card>
+  <div *ngIf="isGlobalLoading" class="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-50 transition-opacity duration-300">
+    <div class="flex flex-col items-center space-y-6">
+      <div class="flex items-center space-x-3">
+        <div class="bg-[#0B132B] p-2.5 rounded-xl flex items-center justify-center shadow-sm">
+          <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </div>
+        <span class="text-xl font-bold text-[#0B132B] tracking-tight">VerificaChain</span>
+      </div>
+      <svg class="animate-spin w-10 h-10 text-[#0B132B]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
     </div>
+  </div>
 
-    <app-features></app-features>
-  </main>
+  <app-navbar></app-navbar>
 
-  <main *ngIf="currentView === 'documents'" class="grow w-full">
-    <app-documents (onBackToHome)="goToHome()"></app-documents>
+  <main class="grow w-full flex flex-col">
+    <router-outlet></router-outlet>
   </main>
 
   <app-footer></app-footer>

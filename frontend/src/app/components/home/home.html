@@ -1,0 +1,12 @@
+<main class="grow container mx-auto px-4 py-12 flex flex-col items-center justify-center">
+  <app-hero></app-hero>
+  
+  <div class="w-full flex justify-center pb-20 mt-2" *ngIf="!isInitializing">
+    <app-main-card 
+      [walletAddress]="userAddress" 
+      (onConnect)="connect()">
+    </app-main-card>
+  </div>
+
+  <app-features></app-features>
+</main>

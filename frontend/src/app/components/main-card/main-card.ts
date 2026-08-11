@@ -1,15 +1,20 @@
-import { Component, Input, Output, EventEmitter, NgZone, ChangeDetectorRef } from '@angular/core';
+import { Component, Input, Output, EventEmitter, NgZone, ChangeDetectorRef, HostListener, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DropzoneComponent } from '../dropzone/dropzone'; 
 import { toast } from 'ngx-sonner';
-import { BrowserProvider, Contract } from 'ethers';
-
-import DocumentVerifierArtifact from '../../artifacts/DocumentVerifier.json';
-
-const CONTRACT_ABI = DocumentVerifierArtifact.abi;
-const CONTRACT_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3';
+import { PinataService } from '../../services/pinata.service';
+import { BlockchainService } from '../../services/blockchain.service';
 
 type Tab = 'register' | 'verify';
+
+interface VerificationResult {
+  hash: string;
+  owner?: string;
+  ipfsUri?: string;
+  timestamp?: string; 
+  isRevoked?: boolean;     
+  revokedDate?: string; 
+}
 
 @Component({
   selector: 'app-main-card',
@@ -20,20 +25,50 @@ type Tab = 'register' | 'verify';
     'class': 'block w-full max-w-4xl mx-auto relative z-10'
   }
 })
-export class MainCardComponent {
+export class MainCardComponent implements OnChanges {
   @Input() walletAddress: string | null = null;
   @Output() onConnect = new EventEmitter<void>();
+  @Output() processingStatus = new EventEmitter<boolean>();
 
-  constructor(private ngZone: NgZone, private cdr: ChangeDetectorRef) {}
+  private delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-  activeTab: Tab = 'register';
+  constructor(
+    private ngZone: NgZone, 
+    private cdr: ChangeDetectorRef,
+    private pinataService: PinataService,
+    private blockchainService: BlockchainService,
+  ) {}
+
+  activeTab: Tab = 'verify';
   file: File | null = null;
   isProcessing = false;
-  result: { hash: string; timestamp: string } | null = null;
+  result: VerificationResult | null = null;
+  private txTimeout: any;
+
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes['walletAddress']) {
+      const newAddress = changes['walletAddress'].currentValue;
+      
+      if (!newAddress && this.activeTab === 'register') {
+        this.activeTab = 'verify';
+        this.result = null;
+      }
+    }
+  }
+
+  @HostListener('window:beforeunload', ['$event'])
+  unloadNotification($event: any) {
+    if (this.isProcessing) {
+      $event.returnValue = true; 
+    }
+  }
 
   switchTab(tab: Tab) {
+    if (this.isProcessing) {
+      toast.warning('Aguarde a transação atual finalizar para trocar de aba.');
+      return; 
+    }
     this.activeTab = tab;
-    this.file = null;
     this.result = null;
   }
 
@@ -50,71 +85,126 @@ export class MainCardComponent {
   }
 
   async handleAction() {
-    if (!this.walletAddress) {
-      toast.error('Por favor, conecte sua carteira primeiro.');
-      this.onConnect.emit();
-      return;
-    }
-
     if (!this.file) {
-      toast.error('Por favor, selecione um documento.');
-      return;
-    }
-
-    // Verifica se a MetaMask (ou outra carteira) está instalada
-    if (!(window as any).ethereum) {
-      toast.error('Carteira Web3 não detectada no navegador.');
+      toast.error('Por favor, selecione um documento primeiro.');
       return;
     }
 
     this.isProcessing = true;
+    this.processingStatus.emit(true);
+    let ipfsCid: string | null = null;
     
     try {
-      // 1. Gera o Hash localmente no navegador (Rápido e sem custo)
-      const hash = await this.generateHash(this.file);
-
-      // 2. Conecta ao provedor da MetaMask e prepara o Contrato
-      const provider = new BrowserProvider((window as any).ethereum);
-      const signer = await provider.getSigner();
-      const contract = new Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer) as any;
+      const hash = await this.generateHash(this.file!);
 
       if (this.activeTab === 'register') {
-        
-        // REGISTRAR: Pede assinatura na MetaMask e manda para a blockchain
-        const tx = await contract.registerDocument(hash);
-        
-        toast.loading('Confirmando transação na rede...', { id: 'tx-toast' });
-        
-        // Aguarda a confirmação do bloco
-        await tx.wait();
-        
-        toast.dismiss('tx-toast');
+        if (!this.walletAddress) {
+          toast.error('Conecte sua carteira para registrar o documento.');
+          this.onConnect.emit();
+          this.isProcessing = false;
+          return;
+        }
 
-        // Atualiza a tela (NgZone garante que o Angular perceba a mudança)
+        if (!(window as any).ethereum) {
+          toast.error('Carteira Web3 não detectada no navegador.');
+          this.isProcessing = false;
+          return;
+        }
+        
+        toast.loading('Processando metadados e enviando para o IPFS...', { id: 'ipfs-toast' });
+        
+        const formattedDate = new Date().toLocaleDateString('pt-BR');
+
+        const tokenUriJson = await this.pinataService.uploadToIPFS(
+          this.file!, 
+          this.file!.name, 
+          hash, 
+          formattedDate
+        ); 
+        
+        toast.dismiss('ipfs-toast');
+
+        if (!tokenUriJson) {
+          toast.error('Falha no upload para a nuvem. Transação cancelada.');
+          this.isProcessing = false;
+          return;
+        }
+
+        const ipfsUri = tokenUriJson.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+
+        toast.loading('Confirme ou cancele a transação na sua carteira MetaMask para proceder.', { 
+          id: 'tx-toast', 
+          duration: Infinity 
+        });
+        
+        this.txTimeout = setTimeout(() => {
+          if (this.isProcessing) {
+            toast.dismiss('tx-toast');
+            toast.warning('Aprovação pendente. Verifique a extensão da MetaMask.', { 
+              duration: 8000, 
+              position: 'bottom-right' 
+            });
+          }
+        }, 30000);
+
+        const tx = await this.blockchainService.registerDocument(hash, ipfsUri); 
+        
+        clearTimeout(this.txTimeout); 
+        toast.dismiss('tx-toast');    
+        
+        toast.loading('Transação enviada! Aguardando confirmação da rede...', { id: 'tx-mining', duration: Infinity });
+        
+        await tx.wait(); 
+
+        await this.delay(1000);
+        
+        toast.dismiss('tx-mining');
+
         this.ngZone.run(() => {
           this.result = { 
-            hash, 
-            timestamp: new Date().toISOString() 
+            hash,
+            owner: this.walletAddress!,
+            timestamp: new Date().toISOString(), 
+            ipfsUri: ipfsUri 
           };
-          toast.success('Documento registrado com sucesso na blockchain!', {
-            description: `Hash: ${hash.slice(0, 10)}...`,
+          toast.success('Documento registrado com sucesso!', {
+            description: 'O arquivo foi criptografado e salvo de forma imutável.',
           });
         });
 
-      } else {
-        
-        // VERIFICAR: Lê da blockchain (Gratuito, não abre MetaMask)
-        const [isRegistered, blockTimestamp, issuer] = await contract.verifyDocument(hash);
+      } else {      
+        const [isRegistered, owner, uri, revokeTimestamp] = await this.blockchainService.verifyDocument(hash);
 
         this.ngZone.run(() => {
           if (isRegistered) {
-            // Converte o tempo do bloco da rede para data normal
-            const date = new Date(Number(blockTimestamp) * 1000).toISOString();
-            this.result = { hash, timestamp: date };
+            const revokeTimeNum = Number(revokeTimestamp);
+            const isRevoked = revokeTimeNum > 0;
+            let revokedDateStr = '';
             
-            toast.success('Documento verificado e autêntico!', {
-               description: `Emitido pela carteira: ${issuer.slice(0,6)}...${issuer.slice(-4)}`,
-            });
+            if (isRevoked) {
+              const date = new Date(revokeTimeNum * 1000);
+              revokedDateStr = date.toLocaleDateString('pt-BR');
+            }
+
+            this.result = { 
+              hash, 
+              owner: owner,
+              ipfsUri: uri,
+              timestamp: new Date().toISOString(),
+              isRevoked: isRevoked,
+              revokedDate: revokedDateStr
+            };
+            
+            if (isRevoked) {
+              toast.error('Documento Revogado!', {
+                description: `Este documento foi emitido por ${owner.slice(0,6)}...${owner.slice(-4)}, mas foi revogado em ${revokedDateStr}.`
+              });
+            } else {
+              toast.success('Documento íntegro e autêntico!', {
+                 description: `Emitido pela carteira: ${owner.slice(0,6)}...${owner.slice(-4)}`,
+              });
+            }
+
           } else {
             toast.error('Documento não encontrado.', {
               description: 'Este arquivo pode ter sido alterado ou nunca foi registrado.'
@@ -122,25 +212,37 @@ export class MainCardComponent {
             this.result = null;
           }
         });
-
       }
     } catch (error: any) {
       console.error(error);
+      
+      clearTimeout(this.txTimeout);
+      toast.dismiss('tx-toast');
+      toast.dismiss('tx-mining');
+      
+      if (ipfsCid) {
+        console.log('Transação falhou. Iniciando remoção no Pinata...');
+        toast.loading('Revertendo envio do arquivo...', { id: 'rollback-toast' });
+        await this.pinataService.deleteFromIPFS(ipfsCid);
+        toast.dismiss('rollback-toast');
+      }
+
       this.ngZone.run(() => {
         toast.dismiss('tx-toast');
+        toast.dismiss('ipfs-toast');
         
-        // Tratamento de erros comuns
         if (error.code === 'ACTION_REJECTED') {
           toast.error('Transação cancelada na carteira.');
         } else if (error.message && error.message.includes('Documento ja registrado')) {
-          toast.warning('Atenção: Este documento já possui registro na rede!');
+          toast.warning('Aviso: Este documento já está registrado!');
         } else {
-          toast.error('Ocorreu um erro de comunicação com a rede blockchain.');
+          toast.error('Erro de comunicação com a blockchain.');
         }
       });
     } finally {
       this.ngZone.run(() => {
         this.isProcessing = false;
+        this.processingStatus.emit(false);
         this.cdr.detectChanges();
       });
     }
