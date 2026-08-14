@@ -167,6 +167,7 @@ export class MainCardComponent implements OnChanges {
             timestamp: new Date().toISOString(), 
             ipfsUri: ipfsUri 
           };
+          toast.dismiss();
           toast.success('Documento registrado com sucesso!', {
             description: 'O arquivo foi criptografado e salvo de forma imutável.',
           });
@@ -197,16 +198,19 @@ export class MainCardComponent implements OnChanges {
             
             if (isRevoked) {
               toast.error('Documento Revogado!', {
+                id: 'revoke-document',
                 description: `Este documento foi emitido por ${owner.slice(0,6)}...${owner.slice(-4)}, mas foi revogado em ${revokedDateStr}.`
               });
             } else {
               toast.success('Documento íntegro e autêntico!', {
+                 id: 'verification-success',
                  description: `Emitido pela carteira: ${owner.slice(0,6)}...${owner.slice(-4)}`,
               });
             }
 
           } else {
             toast.error('Documento não encontrado.', {
+              id: 'verification-failed',
               description: 'Este arquivo pode ter sido alterado ou nunca foi registrado.'
             });
             this.result = null;

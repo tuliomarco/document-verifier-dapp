@@ -22,7 +22,7 @@ export default async function handler(req: Request) {
       throw new Error('Arquivo principal não encontrado na requisição.');
     }
 
-    // --- UPLOAD DO ARQUIVO FÍSICO (PDF/IMAGEM) ---
+    // --- UPLOAD DO ARQUIVO FÍSICO (PDF) ---
     // Recriamos um FormData limpo só com o arquivo para enviar ao Pinata
     const fileFormData = new FormData();
     fileFormData.append('file', file);
