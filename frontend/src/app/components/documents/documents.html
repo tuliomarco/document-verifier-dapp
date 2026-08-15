@@ -48,11 +48,11 @@
     <!-- LOADING LOCALIZADO (Paginação) -->
     <div *ngIf="isLoading" class="absolute inset-0 flex flex-col items-center justify-center py-20 z-10 bg-slate-50/50 backdrop-blur-sm rounded-2xl animate-in fade-in duration-300">
       <div class="w-12 h-12 border-4 border-slate-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
-      <p class="text-sm font-medium text-slate-600">Buscando documentos na blockchain...</p>
+      <p class="text-sm font-medium text-slate-600">Buscando documentos...</p>
     </div>
 
     <!-- ESTADO VAZIO -->
-    <div *ngIf="!isLoading && documents.length === 0" class="w-full flex flex-col items-center justify-center py-20 px-4 bg-white rounded-2xl border-2 border-dashed border-slate-200 shadow-sm animate-in fade-in duration-500">
+    <div *ngIf="!isLoading && totalDocuments === 0" class="w-full flex flex-col items-center justify-center py-20 px-4 bg-white rounded-2xl border-2 border-dashed border-slate-200 shadow-sm animate-in fade-in duration-500">
       <div class="bg-slate-50 p-5 rounded-full mb-5 border border-slate-100">
         <svg class="w-12 h-12 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -67,8 +67,24 @@
       </button>
     </div>
 
+    <!-- ESTADO DE ERRO (Atraso na rede IPFS) -->
+    <div *ngIf="!isLoading && ipfsError && totalDocuments > 0" class="w-full flex flex-col items-center justify-center py-20 px-4 bg-white rounded-2xl border-2 border-dashed border-amber-200 shadow-sm animate-in fade-in duration-500">
+      <div class="bg-amber-50 p-5 rounded-full mb-5 border border-amber-100">
+        <svg class="w-12 h-12 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </div>
+      <h3 class="text-xl font-bold text-slate-900 mb-2">Atraso na Rede</h3>
+      <p class="text-slate-500 text-sm max-w-md text-center mb-8 leading-relaxed">
+        <strong>{{ totalDocuments }} ativo(s) encontrado(s)</strong> na blockchain, mas a rede descentralizada de arquivos (IPFS) está demorando para responder com os detalhes.
+      </p>
+      <button (click)="fetchUserDocuments(walletAddress!)" class="px-6 py-2.5 bg-slate-900 text-white rounded-lg font-medium text-sm hover:bg-slate-800 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 shadow-md">
+        Tentar Novamente
+      </button>
+    </div>
+
     <!-- CONTEÚDO (LISTA/GRID E PAGINAÇÃO) -->
-    <ng-container *ngIf="!isLoading && documents.length > 0">
+    <ng-container *ngIf="!isLoading && documents.length > 0 && !ipfsError">
       
       <!-- VISUALIZAÇÃO: GRID -->
       <div *ngIf="viewMode === 'grid'" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-fade-in-up">

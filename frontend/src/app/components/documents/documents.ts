@@ -24,7 +24,6 @@ export interface DocumentRecord {
   styleUrl: './documents.css'
 })
 export class DocumentsComponent implements OnInit, OnDestroy {
-  // Lógicas que vieram do app.ts
   walletAddress: string | null = null;
   documents: DocumentRecord[] = [];
   
@@ -34,9 +33,9 @@ export class DocumentsComponent implements OnInit, OnDestroy {
   totalDocuments: number = 0;
   
   isLoading: boolean = false;
-  isProcessing: boolean = false; // Usado na revogação
+  isProcessing: boolean = false;
+  ipfsError: boolean = false;
 
-  // Lógicas visuais que já eram do documents.ts
   viewMode: 'grid' | 'list' = 'grid';
   isRevokeModalOpen: boolean = false;
   documentIdToRevoke: string | null = null;
@@ -80,16 +79,14 @@ export class DocumentsComponent implements OnInit, OnDestroy {
     if (this.sub) this.sub.unsubscribe();
   }
 
-  // --- FUNÇÕES DE BUSCA E REVOGAÇÃO (Migradas do app.ts) ---
-
   async fetchUserDocuments(walletAddress: string, page: number = this.currentPage) {
     try {
       this.isLoading = true;
+      this.ipfsError = false;
       
       this.totalDocuments = await this.blockchainService.getUserDocumentCount(walletAddress);
       this.totalPages = Math.ceil(this.totalDocuments / this.itemsPerPage) || 1;
       
-
       const offset = (page - 1) * this.itemsPerPage;
       const [tokenIds, revokeTimes] = await this.blockchainService.getPaginatedDocuments(walletAddress, offset, this.itemsPerPage);
       
@@ -100,7 +97,15 @@ export class DocumentsComponent implements OnInit, OnDestroy {
         const revokeTimestamp = Number(revokeTimes[i]); 
         
         const uri = await this.blockchainService.getTokenURI(tokenId);
-        const ipfsResponse = await fetch(uri);
+        
+        const dedicatedGateway = 'https://bronze-imperial-lizard-952.mypinata.cloud/ipfs/';
+
+        const formattedUri = uri.startsWith('ipfs://') 
+          ? uri.replace('ipfs://', dedicatedGateway)
+          : uri.replace('https://gateway.pinata.cloud/ipfs/', dedicatedGateway);
+
+        const ipfsResponse = await fetch(formattedUri);
+        if (!ipfsResponse.ok) throw new Error('Falha na resposta da rede IPFS');
         const ipfsData = await ipfsResponse.json();
         
         const isRevoked = revokeTimestamp > 0;
@@ -114,7 +119,7 @@ export class DocumentsComponent implements OnInit, OnDestroy {
         let finalFileUrl = uri; 
         if (ipfsData.documentUrl) {
           finalFileUrl = ipfsData.documentUrl.startsWith('ipfs://') 
-            ? ipfsData.documentUrl.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/') 
+            ? ipfsData.documentUrl.replace('ipfs://', dedicatedGateway) 
             : ipfsData.documentUrl;
         }
 
@@ -132,7 +137,9 @@ export class DocumentsComponent implements OnInit, OnDestroy {
       this.documents = fetchedDocuments;
     } catch (error) {
       console.error('Erro ao buscar documentos:', error);
-      toast.error('Falha ao comunicar com a blockchain.');
+      
+      this.ipfsError = true; 
+      toast.error('Atraso na rede IPFS ou falha de conexão.');
     } finally {
       this.isLoading = false;
       this.cdr.detectChanges();
@@ -144,7 +151,7 @@ export class DocumentsComponent implements OnInit, OnDestroy {
     try {
       const tx = await this.blockchainService.revokeDocument(tokenId);
       await tx.wait();
-      await this.delay(1000); // Respiro do nó local
+      await this.delay(1000);
       
       await this.fetchUserDocuments(this.walletAddress!, this.currentPage);
 
