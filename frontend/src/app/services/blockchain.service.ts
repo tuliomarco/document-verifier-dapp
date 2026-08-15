@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { BrowserProvider, Contract, JsonRpcProvider } from 'ethers';
 import DocumentVerifierArtifact from '../artifacts/DocumentVerifier.json';
-import { environment } from '../../environments/environment.development';
+import { environment } from '../../environments/evironment';
 
 declare global {
   interface Window {

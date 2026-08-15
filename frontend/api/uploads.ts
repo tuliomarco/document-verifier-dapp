@@ -23,7 +23,6 @@ export default async function handler(req: Request) {
     }
 
     // --- UPLOAD DO ARQUIVO FÍSICO (PDF) ---
-    // Recriamos um FormData limpo só com o arquivo para enviar ao Pinata
     const fileFormData = new FormData();
     fileFormData.append('file', file);
 
@@ -69,7 +68,6 @@ export default async function handler(req: Request) {
       throw new Error(jsonData.error?.details || 'Erro ao fixar o JSON de metadados no Pinata.');
     }
 
-    // Devolvemos para o frontend APENAS a URI do JSON!
     return new Response(JSON.stringify({ 
       success: true, 
       tokenURI: `ipfs://${jsonData.IpfsHash}` 
