@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule, NavigationStart, NavigationEnd, NavigationCancel, NavigationError } from '@angular/router';
 import { NgxSonnerToaster, toast } from 'ngx-sonner';
@@ -29,6 +29,13 @@ export class AppComponent implements OnInit {
     private walletService: WalletService,
     private cdr: ChangeDetectorRef 
   ) {}
+
+  @HostListener('window:popstate', ['$event'])
+  onBrowserNavigation() {
+    toast.dismiss();
+    this.isGlobalLoading = true;
+    this.cdr.detectChanges();
+  }//////////////////////////////////
 
   ngOnInit() {
     // 1. MÁSCARA DO PRIMEIRO CARREGAMENTO (Evita o piscar da tela inicial)
