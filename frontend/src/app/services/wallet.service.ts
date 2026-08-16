@@ -49,10 +49,25 @@ export class WalletService {
             this.disconnectWallet(true);
           } else {
             const newAddress = accounts[0];
-            this.userAddressSubject.next(newAddress);
             
             if (!this.isConnecting && oldAddress && oldAddress.toLowerCase() !== newAddress.toLowerCase()) {
-              toast.info('Conta da MetaMask alterada.');
+              toast.dismiss();
+              
+              this.isProcessing$.next(true);
+              this.userAddressSubject.next(newAddress);
+
+              setTimeout(() => {
+                this.isProcessing$.next(false);
+                setTimeout(() => {
+                  toast.info('Conta da MetaMask alterada.', {
+                    id: 'account-changed'
+                  });
+                }, 500); 
+
+              }, 2000);
+
+            } else {
+              this.userAddressSubject.next(newAddress);
             }
           }
         });
@@ -69,7 +84,9 @@ export class WalletService {
     }
 
     if (typeof window.ethereum === 'undefined') {
-      toast.error('MetaMask não detectada!');
+      toast.error('MetaMask não detectada!', {
+        id: 'metamask-not-detected'
+      });
       return;
     }
 
