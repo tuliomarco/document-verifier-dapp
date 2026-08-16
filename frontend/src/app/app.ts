@@ -1,7 +1,7 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule, NavigationStart, NavigationEnd, NavigationCancel, NavigationError } from '@angular/router';
-import { NgxSonnerToaster } from 'ngx-sonner';
+import { NgxSonnerToaster, toast } from 'ngx-sonner';
 import { NavbarComponent } from './components/navbar/navbar';
 import { FooterComponent } from './components/footer/footer';
 import { WalletService } from './services/wallet.service';
@@ -40,7 +40,7 @@ export class AppComponent implements OnInit {
         setTimeout(() => { 
           this.isGlobalLoading = false; 
           this.cdr.detectChanges();
-        }, 300);
+        }, 800);
       }
     });
 
@@ -50,6 +50,7 @@ export class AppComponent implements OnInit {
       if (event.id === 1) return; 
 
       if (event instanceof NavigationStart) {
+        toast.dismiss();
         this.isGlobalLoading = true;
         this.cdr.detectChanges(); 
       }
