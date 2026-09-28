@@ -130,8 +130,6 @@ export class MainCardComponent implements OnChanges {
           return;
         }
 
-        const ipfsUri = tokenUriJson.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-
         toast.loading('Confirme ou cancele a transação na sua carteira MetaMask para proceder.', { 
           id: 'tx-toast', 
           duration: Infinity 
@@ -147,7 +145,7 @@ export class MainCardComponent implements OnChanges {
           }
         }, 30000);
 
-        const tx = await this.blockchainService.registerDocument(hash, ipfsUri); 
+        const tx = await this.blockchainService.registerDocument(hash, tokenUriJson); 
         
         clearTimeout(this.txTimeout); 
         toast.dismiss('tx-toast');    
@@ -160,12 +158,14 @@ export class MainCardComponent implements OnChanges {
         
         toast.dismiss('tx-mining');
 
+        const displayUri = tokenUriJson.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+
         this.ngZone.run(() => {
           this.result = { 
             hash,
             owner: this.walletAddress!,
             timestamp: new Date().toISOString(), 
-            ipfsUri: ipfsUri 
+            ipfsUri: displayUri 
           };
           toast.dismiss();
           toast.success('Documento registrado com sucesso!', {
